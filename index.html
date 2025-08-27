@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>C to A</title>
+<style>
+    #planes, #answer {
+        font-size: 4vw;
+    }
+
+    button {
+        font-size: 2vw;
+    }
+
+    body {
+        min-height: 95vh;
+        text-align: center;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+</style>
+</head>
+<body>
+
+    <p>
+        THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+    </p>
+    <p>
+        Derived from <a href="https://github.com/CarltonYeung/CarltonYeung.github.io/tree/master">work by CarltonYeung</a>, modified by EL 2025<br />
+    </p>
+    <p>
+        Purpose: C-to-A "counting" practice for aircraft types considering CWT
+    </p>
+    <p>
+        Press "Answer"/Enter key/tap page to show answer, and again to move on ("Reset")<br />
+    </p>
+
+    <div id="div_num_planes">
+        <label id="min_sep_label" for="min_sep">Min Sep: </label>
+        <select name="min_sep" id="min_sep">
+            <option value=4>4 to get 2.5 (TSEW)</option>
+            <option value=5>5 to get 3 (RTF)</option>
+        </select>
+        <br />
+    </div>
+        See <a href="https://www.faa.gov/regulations_policies/orders_notices/index.cfm/go/document.information/documentID/1040468">JO 7110.126B</a> Table 5-5-2<br />
+        Compression for AAC 28R=2 nmi (so add 2 to 5-5-2 values)<br />
+        <div id="dec5or6">
+            <label>C-to-Large (3.5+2) rounds to: </label>
+            <input type="radio" id="dec5" name="dec5or6" checked="true">
+            <label for="dec5">5</label>
+            <input type="radio" id="dec6" name="dec5or6">
+            <label for="dec6">6</label>
+        </div>
+        <br />
+        
+        <label id="label_num_planes" for="num_planes">Number of planes: </label>
+        <select name="num_planes" id="num_planes">
+            <option value=2>2</option>
+            <option value=3>3</option>
+            <option value=4>4</option>
+            <option value=5 selected="selected">5</option>
+            <option value=6>6</option>
+            <option value=7>7</option>
+            <option value=8>8</option>
+            <option value=9>9</option>
+            <option value=10>10</option>
+        </select>
+    </div>
+    <p id="planes"></p>
+    <div id="buttons">
+        <button id="show_answer">Answer</button>
+        <button id ="reset">Reset</button>
+    </div>
+    <p id="answer"></p>
+
+<script type="text/javascript">
+
+const CHANCE_HEAVY = 0.2;
+const CHANCE_LARGE = 0.6;
+const CHANCE_SMALL = 0.15;
+
+const CATEGORIES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+const CATEGORIES_FREQ = [0.05, 0.2*0.3, 0.2*0.4, 0.2*0.3, 0.6*0.2, 0.6*0.6, 0.6*0.2, 0.15*0.5, 0.15*0.5];
+var CATEGORY_DRV = [];
+const DEFAULT_COMPRESSION = 2;
+
+var Current_Sequence = [];
+var Answer_Shown = false;
+
+
+var total = 0.0;
+for (let i = 0; i < CATEGORIES_FREQ.length; i++) {
+    total += CATEGORIES_FREQ[i];
+    CATEGORY_DRV.push(total);
+}
+if (Math.abs(total - 1.0) > 0.001) {
+    console.error('Category total is ' + total + ' not 1.0');
+}
+
+
+function generate_sequence(num_planes) {
+    let sequence = [];
+    for (let i = 0; i < num_planes; i++) {
+        const rand = Math.random();
+        for (let j = 0; j < CATEGORY_DRV.length; j++) {
+            if (rand < CATEGORY_DRV[j]) {
+                sequence.push(CATEGORIES[j]);
+                break;
+            }
+        }
+    }
+
+    return sequence;
+};
+
+function calculate_separation(sequence, default_sep) {
+    let total_separation = 0;
+    var separations = []; // list of sep values
+
+    for (let i = 1; i < sequence.length; i++) {
+        const first = sequence[i-1];
+        const second = sequence[i];
+
+        separation = parseInt(default_sep) ?? 4;
+
+        if (first == 'A') {
+            if (second == 'B') {
+                separation = 7;
+            } else if (second == 'C' || second == 'D') {
+                separation = 8;
+            } else if (second == 'E' || second == 'F' || second == 'G') {
+                separation = 9;
+            } else if (second == 'H'|| second == 'I') {
+                separation = 10;
+            }
+        } else if (first == 'B') {
+            if (second == 'B') {
+                separation = 5;
+            } else if (second == 'C' || second == 'D') {
+                separation = 6;
+            } else if (second == 'E' || second == 'F' || second == 'G' || second == 'H') {
+                separation = 7;
+            } else if (second == 'I') {
+                separation = 8;
+            }
+        } else if (first == 'C') {
+            if (second == 'E' || second == 'F' || second == 'G') {
+                const de_behind_c = document.getElementById("dec5").checked ? 5 : 6;
+                separation = de_behind_c;
+            } else if (second == 'H') {
+                separation = 7;
+            } else if (second == 'I') {
+                separation = 8;
+            }
+        } else if (first == 'D') {
+            if (second == 'B') {
+                separation = 5;
+            } else if (second == 'C' || second == 'D') {
+                separation = 6;
+            } else if (second == 'E' || second == 'F' || second == 'G') {
+                separation = 7;
+            } else if (second == 'H' || second == 'I') {
+                separation = 8;
+            }
+        } else if (first == 'E' || first == 'F') {
+            if (second == 'I') {
+                separation = 6;
+            }
+        }
+
+        separations.push(separation);
+        total_separation += separation;
+    }
+
+    var output = separations.join(" + ") + " = " + total_separation;
+
+    return output;
+};
+
+function showAnswer() {
+    Answer_Shown = true;
+    
+    const select_min_sep = document.getElementById("min_sep");
+    const radar_sep = select_min_sep.options[select_min_sep.selectedIndex].value;
+
+    const text_answer = document.getElementById("answer");
+    text_answer.innerText = calculate_separation(Current_Sequence, radar_sep);
+    return true;
+};
+
+function reset() {
+    Answer_Shown = false;
+    Current_Sequence = [];
+
+    const select_num_planes = document.getElementById("num_planes");
+    const num_planes = select_num_planes.options[select_num_planes.selectedIndex].value;
+    let sequence = generate_sequence(num_planes);
+    Current_Sequence = sequence;
+    document.getElementById("planes").innerText = sequence.join("⇽");
+
+    const text_answer = document.getElementById("answer");
+    text_answer.innerText = "";
+    document.getElementById("show_answer").onclick = showAnswer;
+
+    document.getElementById("dec5").onclick = d_e_sepChanged;
+
+    document.getElementById("dec6").onclick = d_e_sepChanged;
+};
+
+function d_e_sepChanged() {
+    if (Answer_Shown) {
+        showAnswer();
+    }
+}
+
+// Show answer or reset and create new sequence
+function _next() {
+    if (Answer_Shown) {
+        reset();
+    } else {
+        showAnswer();
+    }
+}
+
+// Process non-button body click
+// Mostly for phone/tablet, easier to hit body vs answer/reset
+function bodyClicked(e) {
+    if (e.target.tagName != 'BUTTON') {
+        _next();
+    }
+}
+
+// Process enter key
+// Show answer/reset
+function next(e) {
+    if (e != null && e.keyCode == 13) {
+        _next();
+    }
+}
+
+document.getElementById("reset").onclick = reset;
+document.getElementById("num_planes").onchange = reset;
+document.getElementById("min_sep").onchange = reset;
+document.body.onkeyup = next;
+document.body.onclick = bodyClicked;
+
+reset();
+
+</script>
+</body>
+</html>
+
